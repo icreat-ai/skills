@@ -1,0 +1,16 @@
+{
+  "$schema": "https://cursor.com/schemas/cursor-plugin/plugin.json",
+  "name": "icreat",
+  "displayName": "iCreat AI",
+  "version": "0.1.0",
+  "description": "Official iCreat MCP skills for AI image generation, video generation, video editing, and text-to-speech.",
+  "author": {
+    "name": "iCreat AI"
+  },
+  "publisher": "iCreatAI",
+  "homepage": "https://icreat.ai",
+  "repository": "https://github.com/icreat-ai/skills",
+  "license": "UNLICENSED",
+  "category": "ai-content",
+  "keywords": ["icreat", "mcp", "image-generation", "video-generation", "text-to-speech", "seedance", "kling"]
+}

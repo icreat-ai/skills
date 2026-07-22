@@ -1,0 +1,13 @@
+{
+  "name": "icreat",
+  "version": "0.1.0",
+  "description": "Official iCreat MCP skills for image, video, video editing, and text-to-speech generation.",
+  "author": {
+    "name": "iCreat AI",
+    "url": "https://icreat.ai"
+  },
+  "homepage": "https://icreat.ai",
+  "repository": "https://github.com/icreat-ai/skills",
+  "license": "UNLICENSED",
+  "keywords": ["icreat", "mcp", "image-generation", "video-generation", "text-to-speech"]
+}

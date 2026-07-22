@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "name": "autopilot",
+  "loadedAt": "2026-07-22T03:07:25.492Z",
+  "commands": [
+    "workflow-open",
+    "workflow-attach",
+    "workflow-status",
+    "workflow-answer",
+    "workflow-approve",
+    "workflow-resume",
+    "workflow-resync",
+    "workflow-back"
+  ]
+}

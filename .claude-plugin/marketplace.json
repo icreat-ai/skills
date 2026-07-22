@@ -1,0 +1,22 @@
+{
+  "name": "icreat",
+  "owner": {
+    "name": "iCreat AI",
+    "url": "https://icreat.ai"
+  },
+  "plugins": [
+    {
+      "name": "icreat",
+      "source": "./",
+      "description": "Official iCreat MCP skills for image, video, video editing, and text-to-speech generation.",
+      "version": "0.1.0",
+      "skills": [
+        {
+          "name": "generate",
+          "path": "icreat-generate",
+          "invoke": "/icreat:generate"
+        }
+      ]
+    }
+  ]
+}

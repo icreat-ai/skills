@@ -1,0 +1,16 @@
+{
+  "name": "workflow",
+  "mode": "primary",
+  "description": "Primary workflow agent that drives refine->plan->develop->review->test via workflow tools",
+  "tools": {
+    "workflow_open": true,
+    "workflow_attach": true,
+    "workflow_status": true,
+    "workflow_answer": true,
+    "workflow_approve": true,
+    "workflow_resume": true,
+    "workflow_back": true
+  },
+  "promptFile": "/Users/macbookpro/Documents/workspace/icreat-skills/.workflow-harness/workflow-primary-agent.prompt.md",
+  "manifestFile": "/Users/macbookpro/Documents/workspace/icreat-skills/.workflow-harness/workflow-primary-agent.manifest.json"
+}

@@ -1,0 +1,46 @@
+name: Validate Skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required files
+        run: |
+          test -f VERSION
+          test -f icreat-generate/SKILL.md
+          test -f icreat-generate/references/model-catalog.md
+          test -f icreat-generate/references/media-upload.md
+          test -f icreat-generate/references/request-examples.md
+          test -f icreat-generate/references/troubleshooting.md
+      - name: Validate setup script
+        run: bash -n setup
+      - name: Validate version consistency
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          grep -F "version: $version" icreat-generate/SKILL.md
+          grep -F "\"version\": \"$version\"" .codex-plugin/plugin.json
+          grep -F "\"version\": \"$version\"" .claude-plugin/plugin.json
+          grep -F "\"version\": \"$version\"" .claude-plugin/marketplace.json
+          grep -F "\"version\": \"$version\"" .cursor-plugin/plugin.json
+      - name: Validate reference links
+        run: |
+          grep -F './references/model-catalog.md' icreat-generate/SKILL.md
+          grep -F './references/media-upload.md' icreat-generate/SKILL.md
+          grep -F './references/request-examples.md' icreat-generate/SKILL.md
+          grep -F './references/troubleshooting.md' icreat-generate/SKILL.md
+      - name: Validate MCP workflow gates
+        run: |
+          ! grep -F 'allowed-tools:' icreat-generate/SKILL.md
+          grep -F 'always call `catalog_list` before any async generation' icreat-generate/SKILL.md
+          grep -F 'Tools that do not require an already configured API Key' icreat-generate/SKILL.md
+          grep -F '`get_account_status`, `configure_api_key`' icreat-generate/SKILL.md
+          grep -F '`upload_generation_reference`, and `inspect`' icreat-generate/SKILL.md
+          grep -F 'OSS returns 2xx' README.md
+          grep -F '$HOME/.codex/plugins' setup
+          grep -F '$HOME/.cursor/plugins' setup

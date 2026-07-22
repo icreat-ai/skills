@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Install iCreat Skills into a supported Agent skill directory.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_NAME="icreat-generate"
+SOURCE_DIR="$ROOT_DIR/$SKILL_NAME"
+HOST=""
+COPY_MODE=0
+
+usage() {
+  cat <<'EOF'
+Usage: ./setup [--host codex|claude|cursor|workbuddy] [--copy]
+
+Options:
+  --host <name>  Target Agent. Auto-detects Codex, Claude Code, or Cursor.
+  --copy         Copy files instead of creating a symlink.
+  --help         Show this message.
+
+For WorkBuddy, set WORKBUDDY_SKILLS_DIR to its documented Skill directory:
+  WORKBUDDY_SKILLS_DIR=/path/to/skills ./setup --host workbuddy
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --host)
+      shift
+      [ "$#" -gt 0 ] || { printf '%s\n' '--host requires a value' >&2; exit 1; }
+      HOST="$1"
+      ;;
+    --host=*) HOST="${1#--host=}" ;;
+    --copy) COPY_MODE=1 ;;
+    --help|-h) usage; exit 0 ;;
+    *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 1 ;;
+  esac
+  shift
+done
+
+[ -f "$SOURCE_DIR/SKILL.md" ] || { printf 'Missing %s/SKILL.md\n' "$SKILL_NAME" >&2; exit 1; }
+
+if [ -z "$HOST" ]; then
+  if [ -d "$HOME/.codex" ]; then
+    HOST="codex"
+  elif [ -d "$HOME/.claude" ]; then
+    HOST="claude"
+  elif [ -d "$HOME/.cursor" ]; then
+    HOST="cursor"
+  else
+    printf '%s\n' 'Could not detect an Agent. Re-run with --host.' >&2
+    exit 1
+  fi
+fi
+
+case "$HOST" in
+  codex) TARGET_ROOT="${CODEX_SKILLS_DIR:-$HOME/.codex/plugins}" ;;
+  claude) TARGET_ROOT="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}" ;;
+  cursor) TARGET_ROOT="${CURSOR_SKILLS_DIR:-$HOME/.cursor/plugins}" ;;
+  workbuddy)
+    TARGET_ROOT="${WORKBUDDY_SKILLS_DIR:-}"
+    [ -n "$TARGET_ROOT" ] || { printf '%s\n' 'Set WORKBUDDY_SKILLS_DIR before installing for WorkBuddy.' >&2; exit 1; }
+    ;;
+  *) printf 'Unsupported host: %s\n' "$HOST" >&2; exit 1 ;;
+esac
+
+mkdir -p "$TARGET_ROOT"
+TARGET_DIR="$TARGET_ROOT/$SKILL_NAME"
+
+if [ -e "$TARGET_DIR" ] && [ ! -L "$TARGET_DIR" ]; then
+  printf 'Refusing to replace existing non-symlink: %s\n' "$TARGET_DIR" >&2
+  printf '%s\n' 'Remove it manually or choose a different skill directory.' >&2
+  exit 1
+fi
+
+if [ "$COPY_MODE" -eq 1 ]; then
+  rm -f "$TARGET_DIR"
+  cp -R "$SOURCE_DIR" "$TARGET_DIR"
+else
+  ln -sfn "$SOURCE_DIR" "$TARGET_DIR"
+fi
+
+[ -f "$TARGET_DIR/SKILL.md" ] || { printf 'Installation failed: %s/SKILL.md not found\n' "$TARGET_DIR" >&2; exit 1; }
+printf 'Installed %s for %s at %s\n' "$SKILL_NAME" "$HOST" "$TARGET_DIR"

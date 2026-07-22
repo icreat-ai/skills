@@ -1,0 +1,38 @@
+{
+  "name": "icreat",
+  "version": "0.1.0",
+  "description": "Official iCreat MCP skills for AI image generation, video generation, video editing, and text-to-speech.",
+  "author": {
+    "name": "iCreat AI",
+    "url": "https://icreat.ai"
+  },
+  "homepage": "https://icreat.ai",
+  "repository": "https://github.com/icreat-ai/skills",
+  "keywords": [
+    "icreat",
+    "mcp",
+    "image-generation",
+    "video-generation",
+    "text-to-speech",
+    "seedance",
+    "kling",
+    "gpt-image-2",
+    "nano-banana",
+    "seedream"
+  ],
+  "skills": "./",
+  "interface": {
+    "displayName": "iCreat AI",
+    "shortDescription": "Generate images, videos, and speech through iCreat MCP",
+    "longDescription": "iCreat Skills guide AI agents to discover current iCreat MCP capabilities, use the exact published model schema, upload reference media safely, and return completed image, video, or speech assets.",
+    "developerName": "iCreat AI",
+    "category": "Design",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://icreat.ai",
+    "defaultPrompt": [
+      "Generate a cinematic product image with iCreat",
+      "Create a Seedance video with iCreat",
+      "Generate an MP3 voiceover with iCreat"
+    ]
+  }
+}
