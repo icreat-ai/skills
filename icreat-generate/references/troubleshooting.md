@@ -35,7 +35,9 @@ The API Key is absent for this `client_id`. Ask the user for an API Key from `ht
 
 ## Invalid Parameter, Unsupported Field, or Invalid Enum
 
-Call `catalog_list` again. Re-select the exact `capability_code` and build `request_json` from the current `request_schema` and `request_example`. Do not reuse fields from another model or stale documentation.
+For a deterministic HTTP 400 parameter error, no task was created. Call `catalog_list` again, re-select the exact `capability_code`, rebuild `request_json` from the current `request_schema` and `request_example`, then submit the corrected independent request with a new `logical_job_id`. Do not reuse fields from another model or stale documentation.
+
+For Seedance error `need_review is only allowed on reference_image role, not on first_frame`, remove `need_review` from the `first_frame` item. `need_review` is valid only for `reference_image` and `reference_video`; it is invalid for `first_frame`, `last_frame`, `text`, and `audio_url`. Use `reference_image` by default unless the user explicitly asks for an opening frame or image animation.
 
 ## Requested Model Is Not In `catalog_list`
 

@@ -47,3 +47,15 @@ Expected: The Agent explains that iCreat MCP requires `POST /mcp`, recommends re
 Prompt: "The connection dropped after I asked for a Seedance generation. Try again."
 
 Expected: The Agent preserves the original `logical_job_id` and calls `inspect`, `wait`, or `poll` before any new billed submission.
+
+## Seedance Reference Role Default
+
+Prompt: "Use this product image as a reference for a Seedance video." The user does not ask for an opening frame.
+
+Expected: The Agent uses `role: reference_image` or omits role, and uses `need_review` only on that reference role. It does not use `first_frame` merely because one image was supplied.
+
+## Seedance First Frame Review Error
+
+Prompt: "Seedance returned HTTP 400: need_review is only allowed on reference_image role, not on first_frame. Fix it."
+
+Expected: The Agent calls `catalog_list`, removes `need_review` from the `first_frame` item, creates a new `logical_job_id` because the 400 created no task, and submits only the corrected request.

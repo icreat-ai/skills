@@ -25,7 +25,9 @@ Seedream conditional rule: include `sequential_image_generation_options` only wh
 - A `text` item requires non-empty `text`.
 - Valid ratios: `16:9`, `4:3`, `1:1`, `3:4`, `9:16`, `21:9`, `adaptive`.
 - `duration` is 4 through 15 seconds, or `-1` for automatic selection.
-- Image and video references default to `need_review: true`. Send `false` only after the user confirms there is no real human face. Do not send this field on text or audio items.
+- Omit `role` unless the user gives explicit media semantics. Defaults are `image_url` -> `reference_image`, `video_url` -> `reference_video`, and `audio_url` -> `reference_audio`.
+- Use `first_frame` only when the user explicitly wants an opening frame or asks to animate one image. Use `first_frame` and `last_frame` only when the user explicitly asks to transition from one image to another.
+- `need_review` is allowed only on `reference_image` and `reference_video`, and defaults to `true` when omitted. Send `false` only after the user confirms there is no real human face. Never send it on `first_frame`, `last_frame`, `text`, or `audio_url`.
 
 ## Happy Horse Video
 

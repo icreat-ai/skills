@@ -66,7 +66,7 @@ Tool: `generate_video`
       {
         "type": "image_url",
         "image_url": {"url": "https://public.example.com/product.png"},
-        "role": "first_frame",
+        "role": "reference_image",
         "need_review": true
       }
     ],
@@ -76,7 +76,30 @@ Tool: `generate_video`
 }
 ```
 
-Use `need_review: false` only when the user confirms there is no real human face in the image or video reference.
+Use `need_review: false` only when the user confirms there is no real human face in a `reference_image` or `reference_video`. Do not include `need_review` for `first_frame`, `last_frame`, `text`, or `audio_url`.
+
+## Seedance Animate an Explicit First Frame
+
+Use this only when the user explicitly asks to animate the supplied image or use it as the opening frame.
+
+```json
+{
+  "client_id": "workspace-user",
+  "capability_code": "bytedance/seedance-2-0",
+  "logical_job_id": "animate-first-frame-01",
+  "request_json": {
+    "content": [
+      {"type": "text", "text": "Animate this image with a slow dolly-in"},
+      {
+        "type": "image_url",
+        "image_url": {"url": "https://public.example.com/product.png"},
+        "role": "first_frame"
+      }
+    ],
+    "duration": 5
+  }
+}
+```
 
 ## Text to Speech
 
