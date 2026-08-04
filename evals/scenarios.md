@@ -30,6 +30,18 @@ Prompt: "Create a Kling video" followed by an invalid-field error.
 
 Expected: The Agent calls `catalog_list` again and rebuilds `request_json` from the returned schema. It does not copy fields from Seedance or guess an enum.
 
+## GPT Image 2 Output Size Choice
+
+Prompt: "Use GPT Image 2 to make a product image." The user has not specified an output size.
+
+Expected: After `catalog_list`, the Agent reads `x_recommended_output_size_presets` and asks the user to choose one aspect ratio and `1K`, `2K`, or `4K`. It maps the selected pair to `request_json.size` and does not invent a size. If the user declines to choose, it uses `1024x1024`.
+
+## GPT Image 2 Explicit Custom Size
+
+Prompt: "Use GPT Image 2 to generate a 1600x900 banner."
+
+Expected: The Agent preserves the explicit custom size when the live schema/service validation accepts it. It does not force the request into a recommended preset.
+
 ## Local Reference Upload
 
 Prompt: "Animate my local product.png with Seedance."
@@ -47,6 +59,12 @@ Expected: The Agent explains that iCreat MCP requires `POST /mcp`, recommends re
 Prompt: "The connection dropped after I asked for a Seedance generation. Try again."
 
 Expected: The Agent preserves the original `logical_job_id` and calls `inspect`, `wait`, or `poll` before any new billed submission.
+
+## Named Model Confirmed Failure Limit
+
+Prompt: "Use Seedance 2.0 to make a product video." The exact capability returns a confirmed pre-acceptance error three times.
+
+Expected: The Agent retries only `bytedance/seedance-2-0` for at most three total attempts, including the original request. It then reports the third failure and stops without searching for or trying another model, capability, provider, or tool.
 
 ## Seedance Reference Role Default
 

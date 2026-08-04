@@ -37,6 +37,10 @@ The API Key is absent for this `client_id`. Ask the user for an API Key from `ht
 
 For a deterministic HTTP 400 parameter error, no task was created. Call `catalog_list` again, re-select the exact `capability_code`, rebuild `request_json` from the current `request_schema` and `request_example`, then submit the corrected independent request with a new `logical_job_id`. Do not reuse fields from another model or stale documentation.
 
+This is a confirmed pre-acceptance failure. Retry only the user-selected model or capability, count the original request in a maximum of three total attempts, and stop after the third confirmed failure. Do not search for, recommend, or invoke an alternative model, capability, provider, or tool unless the user explicitly requests one.
+
+For GPT Image 2 output-size errors, read the live `x_recommended_output_size_presets`, ask the user to choose an aspect ratio and `1K`, `2K`, or `4K`, then submit the matching mapped `request_json.size`. The preset metadata is guidance only; do not send it as a request field. A user who explicitly requests a custom `WIDTHxHEIGHT` may use it when the live service accepts it.
+
 For Seedance error `need_review is only allowed on reference_image role, not on first_frame`, remove `need_review` from the `first_frame` item. `need_review` is valid only for `reference_image` and `reference_video`; it is invalid for `first_frame`, `last_frame`, `text`, and `audio_url`. Use `reference_image` by default unless the user explicitly asks for an opening frame or image animation.
 
 ## Requested Model Is Not In `catalog_list`
@@ -53,7 +57,7 @@ Keep the same `logical_job_id`. Use `inspect`, `wait`, or `poll` before a new su
 
 ## Task Failed
 
-Report the returned task error. Preserve the `task_id` and `logical_job_id` for diagnostics. A failed task is not permission to claim success or generate a local fallback.
+Report the returned task error. Preserve the `task_id` and `logical_job_id` for diagnostics. A failed task is not permission to claim success, generate a local fallback, or try another model unless the user explicitly requests an alternative.
 
 ## `wait` Timeout, `NOT_FOUND`, or Missing Result Assets
 

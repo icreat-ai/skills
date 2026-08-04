@@ -19,6 +19,8 @@ Use one stable `client_id` throughout a workflow:
 
 Tool: `generate_image`
 
+Before submitting GPT Image 2, ask the user for an aspect ratio and a resolution from the live `x_recommended_output_size_presets` in `catalog_list`, unless they explicitly request default output or a custom size. For example, `9:16` + `2K` maps to `1440x2560`.
+
 ```json
 {
   "client_id": "workspace-user",
@@ -26,7 +28,7 @@ Tool: `generate_image`
   "logical_job_id": "hero-image-01",
   "request_json": {
     "prompt": "A premium sneaker product hero on a clean studio background",
-    "size": "1024x1024",
+    "size": "1440x2560",
     "quality": "high"
   }
 }

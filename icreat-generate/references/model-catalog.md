@@ -6,12 +6,31 @@ Use this document for model selection and key constraints. Before a real generat
 
 | Model | capability_code | Required field | Important constraints |
 |---|---|---|---|
-| GPT Image 2 | `openai/gpt-image-2` | `prompt` | Up to 16 `image` URLs; `size` supports `auto`, documented sizes, or documented `WIDTHxHEIGHT`; `quality` is `high`, `medium`, or `low` |
+| GPT Image 2 | `openai/gpt-image-2` | `prompt` | Up to 16 `image` URLs; `size` supports recommended presets or an explicit custom `WIDTHxHEIGHT`; `quality` is `high`, `medium`, or `low` |
 | Nano Banana 2 | `google/gemini-3-1-flash-image` | `prompt` | Up to 14 `image` URLs; supported `aspect_ratio`; `image_size` is `1K`, `2K`, or `4K` |
 | Nano Banana Pro | `google/gemini-3-pro-image` | `prompt` | Same family as Nano Banana 2; up to 11 `image` URLs |
 | Seedream 5 | `bytedance/seedream-5-0` | `prompt` | Up to 14 `image` URLs; `size` supports `2K`, `3K`, `4K`, or documented `WIDTHxHEIGHT`; `output_format` is `png` or `jpeg`; `watermark` is boolean |
 
 Seedream conditional rule: include `sequential_image_generation_options` only when `sequential_image_generation` is `auto`. Its `max_images` range is 1 through 15.
+
+### GPT Image 2 Output Size Selection
+
+Read the live `x_recommended_output_size_presets` from `catalog_list` before generation. Unless the user explicitly requests a custom size or default output, ask them to choose an aspect ratio and resolution. Submit only the mapped `size` in `request_json`; do not send the metadata keys themselves.
+
+| Aspect ratio | 1K | 2K | 4K |
+|---|---|---|---|
+| `1:1` | `1024x1024` | `2048x2048` | `2880x2880` |
+| `16:9` | `1280x720` | `2560x1440` | `3840x2160` |
+| `9:16` | `720x1280` | `1440x2560` | `2160x3840` |
+| `4:3` | `1152x864` | `2304x1728` | `3264x2448` |
+| `3:4` | `864x1152` | `1728x2304` | `2448x3264` |
+| `3:2` | `1248x832` | `2496x1664` | `3504x2336` |
+| `2:3` | `832x1248` | `1664x2496` | `2336x3504` |
+| `5:4` | `1120x896` | `2240x1792` | `3200x2560` |
+| `4:5` | `896x1120` | `1792x2240` | `2560x3200` |
+| `21:9` | `1456x624` | `3024x1296` | `3696x1584` |
+
+If the user declines to choose, use `1:1` + `1K` = `1024x1024`. If the user explicitly requests a custom `WIDTHxHEIGHT`, keep it only if the live schema and service validation accept it; do not silently force it to a preset.
 
 ## Seedance Video
 
