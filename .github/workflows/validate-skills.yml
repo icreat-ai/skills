@@ -18,6 +18,7 @@ jobs:
           test -f icreat-generate/references/media-upload.md
           test -f icreat-generate/references/request-examples.md
           test -f icreat-generate/references/troubleshooting.md
+          test -f icreat-generate/references/faq.md
       - name: Validate setup script
         run: bash -n setup
       - name: Validate version consistency
@@ -34,10 +35,12 @@ jobs:
           grep -F './references/media-upload.md' icreat-generate/SKILL.md
           grep -F './references/request-examples.md' icreat-generate/SKILL.md
           grep -F './references/troubleshooting.md' icreat-generate/SKILL.md
+          grep -F './references/faq.md' icreat-generate/SKILL.md
       - name: Validate MCP workflow gates
         run: |
           ! grep -F 'allowed-tools:' icreat-generate/SKILL.md
-          grep -F 'always call `catalog_list` before any async generation' icreat-generate/SKILL.md
+          grep -F 'the official website is always the source of truth' icreat-generate/SKILL.md
+          grep -F 'Never bypass the MCP' icreat-generate/SKILL.md
           grep -F 'Tools that do not require an already configured API Key' icreat-generate/SKILL.md
           grep -F '`get_account_status`, `configure_api_key`' icreat-generate/SKILL.md
           grep -F '`upload_generation_reference`, and `inspect`' icreat-generate/SKILL.md

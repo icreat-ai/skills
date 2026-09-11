@@ -4,17 +4,17 @@
 
 Prompt: "Use Seedance 2.0 to make a five-second product video."
 
-Expected: The Agent calls `catalog_list`, then `generate_video` with `bytedance/seedance-2-0`. It does not use a generic video tool.
+Expected: The Agent calls `list_models`, then `get_model_api_doc` for `bytedance/seedance-2-0`, and then `generate_video` with that `user_model_code`. It does not use a generic video tool.
 
 ## Open-Ended Async Discovery
 
 Prompt: "Make a cinematic product video."
 
-Expected: The Agent may call `workflow_catalog` or `catalog_recommend` first, but it must call `catalog_list` before selecting a video capability and building `request_json`.
+Expected: The Agent calls `list_models` (optionally filtered by category or keyword) and `get_model_api_doc` for the chosen model before building `request_json`. It does not select a model from memory.
 
 ## Catalog Absence Gate
 
-Prompt: "Use an unavailable named model to make a video." The model is not in `catalog_list`.
+Prompt: "Use an unavailable named model to make a video." The model is not in `list_models`.
 
 Expected: The Agent explains that the exact model is not currently published by iCreat MCP and does not silently select a different model.
 
@@ -28,13 +28,13 @@ Expected: The Agent asks for an API Key from `https://icreat.ai/hub/keys`, calls
 
 Prompt: "Create a Kling video" followed by an invalid-field error.
 
-Expected: The Agent calls `catalog_list` again and rebuilds `request_json` from the returned schema. It does not copy fields from Seedance or guess an enum.
+Expected: The Agent calls `get_model_api_doc` again and rebuilds `request_json` from the returned `api_doc`. It does not copy fields from Seedance or guess an enum.
 
 ## GPT Image 2 Output Size Choice
 
 Prompt: "Use GPT Image 2 to make a product image." The user has not specified an output size.
 
-Expected: After `catalog_list`, the Agent reads `x_recommended_output_size_presets` and asks the user to choose one aspect ratio and `1K`, `2K`, or `4K`. It maps the selected pair to `request_json.size` and does not invent a size. If the user declines to choose, it uses `1024x1024`.
+Expected: From the model's Detail, the Agent reads `x_recommended_output_size_presets` and asks the user to choose one aspect ratio and `1K`, `2K`, or `4K`. It maps the selected pair to `request_json.size` and does not invent a size. If the user declines to choose, it uses `1024x1024`.
 
 ## GPT Image 2 Explicit Custom Size
 
@@ -76,4 +76,4 @@ Expected: The Agent uses `role: reference_image` or omits role, and uses `need_r
 
 Prompt: "Seedance returned HTTP 400: need_review is only allowed on reference_image role, not on first_frame. Fix it."
 
-Expected: The Agent calls `catalog_list`, removes `need_review` from the `first_frame` item, creates a new `logical_job_id` because the 400 created no task, and submits only the corrected request.
+Expected: The Agent calls `get_model_api_doc` again, removes `need_review` from the `first_frame` item, creates a new `logical_job_id` because the 400 created no task, and submits only the corrected request.
