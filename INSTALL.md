@@ -52,5 +52,5 @@ The Skill guides the Agent through the connection. Configure the iCreat MCP endp
 After installation, ask the Agent:
 
 ```text
-Use iCreat to generate a small test image. First check the MCP account configuration and current model catalog.
+Use iCreat to generate a small test image. First check the MCP account configuration, then discover models with list_models before generating.
 ```

@@ -18,4 +18,4 @@ bash -n setup
 test -f icreat-generate/SKILL.md
 ```
 
-Review every example against the current iCreat MCP tool definitions and `catalog_list` response.
+Review every example against the current iCreat MCP tool definitions and the official-website discovery responses (`list_models` / `get_model_api_doc`).

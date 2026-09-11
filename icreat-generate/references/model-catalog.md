@@ -1,6 +1,6 @@
 # iCreat MCP Model Catalog
 
-Use this document for model selection and key constraints. Before a real generation call, invoke `catalog_list`; its `request_schema` and `request_example` are authoritative.
+Model discovery is dynamic: `list_models` shows every model currently published on the official website, and `get_model_api_doc` for the exact `user_model_code` is the authoritative request schema. Use the tables below only as convenience hints for common families — the official Detail may add or relax fields at any time, and any website model absent here is still usable.
 
 ## Image
 
@@ -15,7 +15,7 @@ Seedream conditional rule: include `sequential_image_generation_options` only wh
 
 ### GPT Image 2 Output Size Selection
 
-Read the live `x_recommended_output_size_presets` from `catalog_list` before generation. Unless the user explicitly requests a custom size or default output, ask them to choose an aspect ratio and resolution. Submit only the mapped `size` in `request_json`; do not send the metadata keys themselves.
+When the model's Detail output includes `x_recommended_output_size_presets`, read it before generation. Unless the user explicitly requests a custom size or default output, ask them to choose an aspect ratio and resolution. Submit only the mapped `size` in `request_json`; do not send the metadata keys themselves.
 
 | Aspect ratio | 1K | 2K | 4K |
 |---|---|---|---|
@@ -39,6 +39,7 @@ If the user declines to choose, use `1:1` + `1K` = `1024x1024`. If the user expl
 | Seedance 2.0 | `bytedance/seedance-2-0` | `content` with at least one non-empty text item | `480p`, `720p`, `1080p`, `4k` |
 | Seedance 2.0 Fast | `bytedance/seedance-2-0-fast` | Same as Seedance 2.0 | `480p`, `720p` |
 | Seedance 2.0 Mini | `bytedance/seedance-2-0-mini` | Same as Seedance Fast | `480p`, `720p` |
+| MiniMax H3 | `minimax/h3-video` | `content` with one text item; `resolution` `768P`/`2K`, `duration` 4-15 | Follow its Detail |
 
 - `content` item types: `text`, `image_url`, `video_url`, `audio_url`.
 - A `text` item requires non-empty `text`.
@@ -46,7 +47,7 @@ If the user declines to choose, use `1:1` + `1K` = `1024x1024`. If the user expl
 - `duration` is 4 through 15 seconds, or `-1` for automatic selection.
 - Omit `role` unless the user gives explicit media semantics. Defaults are `image_url` -> `reference_image`, `video_url` -> `reference_video`, and `audio_url` -> `reference_audio`.
 - Use `first_frame` only when the user explicitly wants an opening frame or asks to animate one image. Use `first_frame` and `last_frame` only when the user explicitly asks to transition from one image to another.
-- `need_review` is allowed only on `reference_image` and `reference_video`, and defaults to `true` when omitted. Send `false` only after the user confirms there is no real human face. Never send it on `first_frame`, `last_frame`, `text`, or `audio_url`.
+- `need_review` is allowed only on `reference_image` and `reference_video`, and defaults to `true` when omitted (Seedance-family models only; the server applies these defaults). Send `false` only after the user confirms there is no real human face. Never send it on `first_frame`, `last_frame`, `text`, or `audio_url`.
 
 ## Happy Horse Video
 

@@ -1,6 +1,6 @@
 # iCreat MCP Request Examples
 
-These are minimal shapes for planning. Use the MCP protocol in this order: `get_started` -> discovery -> `get_account_status` -> optional upload -> submission -> `wait`. Call `catalog_list` first and adapt every `request_json` to the current live schema.
+These are minimal shapes for planning. Use the MCP protocol in this order: `get_started` -> discovery -> `get_account_status` -> optional upload -> submission -> `wait`. Call `list_models` to discover models and `get_model_api_doc` for the selected `user_model_code`; adapt every `request_json` to that model's current `api_doc`.
 
 ## Required Preflight
 
@@ -11,7 +11,7 @@ Use one stable `client_id` throughout a workflow:
 ```
 
 1. New session: call `get_started`.
-2. Named model or async generation: call `catalog_list` and select the exact capability entry.
+2. Named model or async generation: call `list_models` (optionally filtered by category/keyword), then `get_model_api_doc` with the exact `user_model_code`.
 3. Before submit, poll, or wait: call `get_account_status` with the same `client_id`.
 4. If status is `configuration_missing`, stop. Ask the user for an API Key from `https://icreat.ai/hub/keys`, then call `configure_api_key` after they provide it.
 
@@ -19,7 +19,7 @@ Use one stable `client_id` throughout a workflow:
 
 Tool: `generate_image`
 
-Before submitting GPT Image 2, ask the user for an aspect ratio and a resolution from the live `x_recommended_output_size_presets` in `catalog_list`, unless they explicitly request default output or a custom size. For example, `9:16` + `2K` maps to `1440x2560`.
+Before submitting GPT Image 2, ask the user for an aspect ratio and a resolution from `x_recommended_output_size_presets` in the model's Detail output (when present), unless they explicitly request default output or a custom size. For example, `9:16` + `2K` maps to `1440x2560`.
 
 ```json
 {
