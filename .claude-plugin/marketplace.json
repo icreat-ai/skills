@@ -9,7 +9,7 @@
       "name": "icreat",
       "source": "./",
       "description": "Official iCreat MCP skills for image, video, video editing, and text-to-speech generation.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "skills": [
         {
           "name": "generate",

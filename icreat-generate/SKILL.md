@@ -1,5 +1,5 @@
 ---
-version: 0.2.1
+version: 0.2.2
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.
@@ -139,7 +139,7 @@ After submission, record both `logical_job_id` and returned `task_id`, then use 
 
 For a local image, video, or audio reference, read [media-upload.md](./references/media-upload.md) before calling `upload_generation_reference`.
 
-For Seedance, omit `role` unless the user specifies media semantics: image defaults to `reference_image`, video to `reference_video`, and audio to `reference_audio`. Use `first_frame` only for an explicit opening-frame/animate-this-image request; use `first_frame` plus `last_frame` only for an explicit A-to-B transition. `need_review` defaults to `true` only for `reference_image` and `reference_video`; never attach it to `first_frame`, `last_frame`, `text`, or `audio_url`. These role and review defaults are applied server-side for Seedance-family models only — do not hand-write `role` or `need_review` for other models such as MiniMax H3 unless their `get_model_api_doc` documents them.
+For Seedance, omit `role` unless the user specifies media semantics: image defaults to `reference_image`, video to `reference_video`, and audio to `reference_audio`. Use `first_frame` only for an explicit opening-frame/animate-this-image request; use `first_frame` plus `last_frame` only for an explicit A-to-B transition. `need_review` defaults to `true` only for `reference_image` and `reference_video`; never attach it to `first_frame`, `last_frame`, `text`, or `audio_url`. These role and review defaults are applied server-side for Seedance-family models only — do not hand-write `role` or `need_review` for other models such as MiniMax H3 unless their `get_model_api_doc` documents them. When the reference is a photo or video of a person or contains copyrighted IP, asking about usage rights is REQUIRED before submitting; `need_review: true` adds review latency (keep waiting, never resubmit because polling feels slow). On a face/review/copyright 400 at submit or a FAILED task after review, follow the `review_required` entry in [faq.md](./references/faq.md).
 
 ## Failure Handling
 

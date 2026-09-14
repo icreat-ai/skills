@@ -52,6 +52,26 @@ Same class of bug: the framework serializes the object to a string and fails its
 
 **Never:** retry generation with the local path still in place, use a third-party image host, or submit a billed task "to see if it works" after an upload failure.
 
+## `review_required` (submit HTTP 400 or task FAILED - reference needs official review)
+
+**What happened:** per the official Seedance `need_review` contract, reference media containing a **real human face or copyrighted IP** must be submitted with `need_review: true`. The request failed because review was skipped and upstream detected reviewable content, or a created task failed after review. Two shapes:
+
+1. **Submit returned HTTP 400 mentioning face/review/copyright** - no task was created, nothing was billed.
+2. **`wait`/`poll` returned `FAILED` with a review-related `error_code`** - media that needed review but was submitted without it very likely fails as a task.
+
+**Fix (both shapes):**
+
+1. Ask the user whether the reference contains a real human face or copyrighted IP content, and whether they have the right to use it.
+2. If confirmed: resubmit **once** with `need_review: true` on the `reference_image`/`reference_video` items and a **NEW `logical_job_id`**. This recovers both shapes.
+3. If it fails again with review enabled, offer a different reference image and stop after that.
+4. If the user cannot confirm rights, stop and suggest media without identifiable faces or IP.
+
+**Never:** set `need_review: false` to bypass review, resubmit identical media in a loop, silently swap the reference, or attach `need_review` to `first_frame`/`last_frame`/`text`/`audio_url` (HTTP 400 by contract).
+
+## Related: review latency while waiting
+
+`need_review: true` (the default for image/video references on Seedance-family models) adds an upstream review round-trip. A task with reviewed references can stay `SUBMITTED`/`IN_PROGRESS` noticeably longer than a text-only task. Keep calling `wait` with the same identifiers; do not resubmit because polling feels slow.
+
 ## `cloudflare_access_denied` (HTTP 403 / Cloudflare 1010)
 
 **What happened (real case):** the official website or upload-policy route blocked the request at the edge.
