@@ -1,5 +1,5 @@
 ---
-version: 0.2.0
+version: 0.2.1
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.
@@ -41,7 +41,7 @@ Follow this state machine exactly. Do not skip a gate or replace a failed gate w
 | Prepare media | If a local file is required, complete `upload_generation_reference` and the official OSS multipart upload | Build request | Metadata, raw bytes, multipart upload, or OSS 2xx is unavailable: ask for a public URL and stop |
 | Build request | Build `request_json` exactly from the model's `api_doc` | Submit | Required user intent or a schema-dependent value is missing: ask one focused question |
 | Submit | Use `call`, `generate_image`, `generate_video`, or `generate_audio` as selected | Observe | Structured error with `error` + `next_step`: follow `next_step` and retry the SAME tool. Confirmed pre-acceptance failure: retry the exact selection only, at most three times. Submission response is uncertain: use the same `logical_job_id` with `inspect` / `wait` before resubmitting |
-| Observe | Prefer `wait`; use `poll` when incremental state is needed | Deliver or Report failure | `FAILED` / `NOT_FOUND` / timeout: report actual status and preserve identifiers |
+| Observe | Prefer `wait`; use `poll` when incremental state is needed. On HTTP transport a single `wait` is capped at 50s: if it returns retryable `wait_timeout`, call again with the same identifiers | Deliver or Report failure | `FAILED` / `NOT_FOUND` / timeout: report actual status and preserve identifiers. A dropped wait never means the task failed - poll it, never resubmit |
 | Deliver | Return result URLs and concise model/task outcome | Done | Never claim a result before `SUCCEEDED` |
 
 Tools that do not require an already configured API Key are `get_started`, `get_account_status`, `configure_api_key`, `list_models`, `get_model_api_doc`, `endpoint_catalog`, `upload_generation_reference`, and `inspect`. `configure_api_key` still requires an API Key that the user explicitly provided; `inspect` only reads locally recorded task state. An OSS policy response is not an uploaded file; it must be followed by a successful multipart upload.

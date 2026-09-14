@@ -28,6 +28,12 @@ Fix: retry the SAME tool call unchanged. Do not spawn the MCP binary manually, s
 
 Two real sessions ended with an agent "helpfully" calling `presign` or `/v1/task/submit/*` directly while holding a working API Key. The task succeeded but could not be polled, inspected, or audited. Rule: even if you hold the API Key and know the REST endpoints, never bypass MCP tools. On failure, read `error` + `next_step` and retry the same tool.
 
+## `streamableHttp connect failed` together with `SSE error: Non-200 status code (400)`
+
+Real case (2026-09-11): after a long `wait` was cut by the gateway, the client retried Streamable HTTP and then fell back to standalone SSE. `GET /mcp` without an `Mcp-Session-Id` returns 400 by design (MCP spec), so both attempts failed and the client dropped every iCreat tool.
+
+Fix: configure `POST https://<host>/mcp` only - iCreat MCP has no standalone SSE endpoint. `GET /mcp` is valid only with a session id from a prior POST `initialize`. The 400 body carries `invalid_sse_stream_request` with a `next_step`. If the drop happened during `wait`, resume polling (see the wait section above); never resubmit the task.
+
 ## `Streamable HTTP error` and `SSE error: Non-200 status code (405)`
 
 iCreat MCP uses Streamable HTTP JSON-RPC over `POST /mcp`. Some clients fall back to legacy SSE after a failed Streamable HTTP attempt; `GET /mcp` is unsupported and correctly returns `405 Method Not Allowed`.
@@ -71,6 +77,12 @@ Keep the same `logical_job_id`. Use `inspect`, `wait`, or `poll` before a new su
 ## Task Failed
 
 Report the returned task error. Preserve the `task_id` and `logical_job_id` for diagnostics. A failed task is not permission to claim success, generate a local fallback, or try another model unless the user explicitly requests an alternative.
+
+## `wait` Dropped or "Connection closed" on HTTP Transport
+
+Real case (2026-09-11): a `wait` with `timeout="10m"` held one HTTP request open with zero response bytes until the gateway cut it, and repeated retries exhausted the server's concurrency slots.
+
+Fixed in MCP v0.3.1: on HTTP transport `wait` is capped at 50 seconds per call. If it returns a retryable `wait_timeout`, call `wait` again with the same `task_id` or `logical_job_id` and keep polling until `SUCCEEDED`. Never raise `timeout` above 60s over HTTP, and never resubmit a billed task because its `wait` dropped - the task keeps running server-side.
 
 ## `wait` Timeout, `NOT_FOUND`, or Missing Result Assets
 
