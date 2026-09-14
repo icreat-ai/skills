@@ -16,6 +16,7 @@ Use the exact error text in web searches together with `iCreat MCP`. Every iCrea
 | `unsupported_execution_protocol` | The model's official doc declares no protocol this MCP executes | Report the model as not executable; do not substitute silently |
 | `hub_detail_unavailable` | Official website model directory temporarily unreachable | Retry shortly; do not guess parameters from memory |
 | `api_key_not_configured` | No API Key available | Ask the user for a key from `https://icreat.ai/hub/keys`, then `configure_api_key` or pass `api_key` explicitly |
+| `review_required` (via `face_review_rejected` hint) | Reference media containing a real face or copyrighted IP was submitted without review, or review rejected it | Ask the user about face/IP usage rights; if confirmed, resubmit ONCE with `need_review: true` and a NEW `logical_job_id`; never bypass with `false` |
 | `cloudflare_access_denied` | Cloudflare 403/1010 blocked an official request | Never spoof Chrome/`sec-ch-ua` headers and never bypass MCP with your own HTTP client (this is what triggers 1010 for Python clients). Report it so the gateway can allow the official `icreat-mcp/*` User-Agent |
 
 ## Client-side schema errors (request never reached the server)
