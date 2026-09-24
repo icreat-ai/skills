@@ -19,8 +19,11 @@ jobs:
           test -f icreat-generate/references/request-examples.md
           test -f icreat-generate/references/troubleshooting.md
           test -f icreat-generate/references/faq.md
+          test -f icreat-generate/scripts/upload-reference.mjs
       - name: Validate setup script
         run: bash -n setup
+      - name: Validate upload helper
+        run: node --check icreat-generate/scripts/upload-reference.mjs
       - name: Validate version consistency
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
@@ -36,6 +39,7 @@ jobs:
           grep -F './references/request-examples.md' icreat-generate/SKILL.md
           grep -F './references/troubleshooting.md' icreat-generate/SKILL.md
           grep -F './references/faq.md' icreat-generate/SKILL.md
+          grep -F './scripts/upload-reference.mjs' icreat-generate/SKILL.md
       - name: Validate MCP workflow gates
         run: |
           ! grep -F 'allowed-tools:' icreat-generate/SKILL.md

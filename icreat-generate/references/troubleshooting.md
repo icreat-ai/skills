@@ -67,6 +67,31 @@ For Seedance error `need_review is only allowed on reference_image role, not on 
 
 The model is not currently published on the official website, or the directory is temporarily unavailable (`HUB_CATALOG_UNAVAILABLE`). Tell the user that the exact requested model cannot be submitted through iCreat MCP at this time. Do not silently change to a different model. For a broad request, present choices from `list_models` filtered by category or keyword.
 
+## `SignatureDoesNotMatch` on the OSS upload
+
+Real case (2026-09-23): an agent hand-assembled the upload command and mistyped two characters inside the `policy` field, so OSS rejected the signature. The signature fields are high-entropy (`policy` ~500 chars, `x-amz-signature` 64 chars) and cannot be reliably re-typed by a model.
+
+Fix: run the official helper so the fields are passed programmatically and never re-typed:
+
+```bash
+node ./scripts/upload-reference.mjs --file /absolute/path/photo.png
+```
+
+If the helper itself reports `signature_mismatch`, stop and report it — that points at the presign service or clock skew, not transcription. When node is unavailable and you must hand-submit, write the policy JSON to a file and let the HTTP client read the fields from it.
+
+## Upload Blocked: `getaddrinfo ENOTFOUND` / Sandboxed Client Network
+
+Real case (2026-09-23, Codex): `upload_generation_reference` succeeded, but the POST of raw bytes to OSS failed with `getaddrinfo ENOTFOUND s3.ap-southeast-1.amazonaws.com`. Same machine, non-sandbox shell: `dig` resolves fine; inside the sandbox even `npx` fails with ENOTFOUND. Diagnosis: the client sandbox forbids ALL outbound network (DNS-level) - not an iCreat, OSS, or domain problem.
+
+Remediation (in this order):
+
+1. Ask the user to approve running the upload command **outside the sandbox** when the client prompts.
+2. Or guide the user to enable sandbox outbound network in `~/.codex/config.toml` (`[sandbox_workspace_write] network_access = true`, then restart codex; lowers isolation - mention it).
+3. Or finish the upload from a client with outbound network (e.g. WorkBuddy) and bring the official URL back.
+4. Or ask the user for an already public https URL of the media.
+
+**Never:** switch S3 region or CDN domain, use third-party image hosts, put Base64 into `request_json`, bypass MCP with direct REST, or generate a local substitute.
+
 ## Local Reference Upload Failed
 
 Do not submit the generation request. Report the exact upload failure and ask for a public reference URL if raw bytes or multipart upload are unavailable. Do not use Base64, local paths, a guessed URL, or an unrelated asset.
