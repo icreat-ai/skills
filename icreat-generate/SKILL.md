@@ -1,5 +1,5 @@
 ---
-version: 0.2.2
+version: 0.3.0
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.
@@ -38,7 +38,7 @@ Follow this state machine exactly. Do not skip a gate or replace a failed gate w
 | Connect | Call `get_started` once per new MCP session | Discover | MCP cannot initialize or tools are unavailable: report connection blocker |
 | Discover | Broad request: call `list_models` (optionally with category or keyword filter); named model or async task: `list_models`, then `get_model_api_doc` for that exact `user_model_code`; synchronous task: `endpoint_catalog` | Authenticate or Prepare media | Requested model is absent from `list_models` or its Detail has no executable protocol: tell the user and do not substitute it |
 | Authenticate | Call `get_account_status` before every credentialed operation | Prepare media or Build request | `configuration_missing`: request user API Key and wait |
-| Prepare media | If a local file is required, complete `upload_generation_reference` and the official OSS multipart upload | Build request | Metadata, raw bytes, multipart upload, or OSS 2xx is unavailable: ask for a public URL and stop |
+| Prepare media | If a local file is required, prefer the official helper `node ./scripts/upload-reference.mjs --file <abs path>` (signature never transcribed; returns status ready/failed/unknown). Only when node is unavailable, fall back to `upload_generation_reference` + hand-submitted multipart | Build request | Metadata, raw bytes, multipart upload, or OSS 2xx is unavailable: ask for a public URL and stop |
 | Build request | Build `request_json` exactly from the model's `api_doc` | Submit | Required user intent or a schema-dependent value is missing: ask one focused question |
 | Submit | Use `call`, `generate_image`, `generate_video`, or `generate_audio` as selected | Observe | Structured error with `error` + `next_step`: follow `next_step` and retry the SAME tool. Confirmed pre-acceptance failure: retry the exact selection only, at most three times. Submission response is uncertain: use the same `logical_job_id` with `inspect` / `wait` before resubmitting |
 | Observe | Prefer `wait`; use `poll` when incremental state is needed. On HTTP transport a single `wait` is capped at 50s: if it returns retryable `wait_timeout`, call again with the same identifiers | Deliver or Report failure | `FAILED` / `NOT_FOUND` / timeout: report actual status and preserve identifiers. A dropped wait never means the task failed - poll it, never resubmit |
@@ -139,7 +139,7 @@ After submission, record both `logical_job_id` and returned `task_id`, then use 
 
 For a local image, video, or audio reference, read [media-upload.md](./references/media-upload.md) before calling `upload_generation_reference`.
 
-For Seedance, omit `role` unless the user specifies media semantics: image defaults to `reference_image`, video to `reference_video`, and audio to `reference_audio`. Use `first_frame` only for an explicit opening-frame/animate-this-image request; use `first_frame` plus `last_frame` only for an explicit A-to-B transition. `need_review` defaults to `true` only for `reference_image` and `reference_video`; never attach it to `first_frame`, `last_frame`, `text`, or `audio_url`. These role and review defaults are applied server-side for Seedance-family models only — do not hand-write `role` or `need_review` for other models such as MiniMax H3 unless their `get_model_api_doc` documents them. When the reference is a photo or video of a person or contains copyrighted IP, asking about usage rights is REQUIRED before submitting; `need_review: true` adds review latency (keep waiting, never resubmit because polling feels slow). On a face/review/copyright 400 at submit or a FAILED task after review, follow the `review_required` entry in [faq.md](./references/faq.md).
+For Seedance, omit `role` unless the user specifies media semantics: image defaults to `reference_image`, video to `reference_video`, and audio to `reference_audio`. Use `first_frame` only for an explicit opening-frame/animate-this-image request; use `first_frame` plus `last_frame` only for an explicit A-to-B transition. `need_review` defaults to `true` only for `reference_image` and `reference_video`; never attach it to `first_frame`, `last_frame`, `text`, or `audio_url`. If the OSS POST fails with DNS/network errors (ENOTFOUND/EAI_AGAIN), the client sandbox forbids outbound network: ask the user to approve outside-sandbox execution or enable network egress, or request an already public https URL - see [troubleshooting.md](./references/troubleshooting.md). These role and review defaults are applied server-side for Seedance-family models only — do not hand-write `role` or `need_review` for other models such as MiniMax H3 unless their `get_model_api_doc` documents them. When the reference is a photo or video of a person or contains copyrighted IP, asking about usage rights is REQUIRED before submitting; `need_review: true` adds review latency (keep waiting, never resubmit because polling feels slow). On a face/review/copyright 400 at submit or a FAILED task after review, follow the `review_required` entry in [faq.md](./references/faq.md).
 
 ## Failure Handling
 
@@ -157,6 +157,7 @@ For Seedance, omit `role` unless the user specifies media semantics: image defau
 
 Load only when needed:
 
+- [scripts/upload-reference.mjs](./scripts/upload-reference.mjs): official upload helper — run it for local reference media instead of transcribing OSS signature fields
 - [faq.md](./references/faq.md): the error-code catalog targeted by every error envelope's `faq` field — read this FIRST when any tool call fails
 - [troubleshooting.md](./references/troubleshooting.md): Streamable HTTP, SSE 405, transport recovery, task recovery, and the error quick-reference table
 - [model-catalog.md](./references/model-catalog.md): capability routing and important model constraints

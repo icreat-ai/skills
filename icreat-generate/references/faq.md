@@ -52,6 +52,52 @@ Same class of bug: the framework serializes the object to a string and fails its
 
 **Never:** retry generation with the local path still in place, use a third-party image host, or submit a billed task "to see if it works" after an upload failure.
 
+## Uploading a local reference: use the official helper (avoids signature transcription)
+
+**Preferred path.** `upload_generation_reference` returns a signed OSS policy whose `policy` (~500 chars) and `x-amz-signature` (64 chars) are high-entropy strings. Re-typing them corrupts the signature (a real 2026-09-23 case flipped two characters and got `SignatureDoesNotMatch`). The official helper never lets a model touch those fields:
+
+```bash
+node ./scripts/upload-reference.mjs --file /absolute/path/photo.png
+```
+
+It fetches its own policy, submits every field programmatically, verifies HTTP 2xx, and prints one JSON object:
+
+| status | Meaning | Required action |
+|---|---|---|
+| `ready` | Upload confirmed (HTTP 2xx) | Use the returned `url` in the generation request |
+| `failed` | Confirmed failure with `error_code` | Fix per the code below; never fabricate a URL |
+| `unknown` | Outcome undetermined (timeout / no response) | Do NOT start generation, do NOT re-upload blindly; ask the user to retry once or verify the media |
+
+`file_sha256` in the output is a **local digest only** - it does not prove remote object integrity (no remote verification is performed).
+
+Helper `error_code` values: `invalid_arguments`, `file_not_readable`, `file_empty`, `file_too_large`, `unsupported_extension`, `content_type_mismatch` (extension does not match magic bytes - convert the file, do not force the extension), `presign_network_error`, `presign_timeout`, `upload_network_unreachable`, `upload_tls_error`, `upload_host_not_allowed`, `policy_expired` (helper re-signs up to 2 times automatically), `signature_mismatch`, `upload_forbidden`.
+
+**Fallback path (only when node is unavailable):** hand-submit the policy, but write the returned JSON to a file and let your HTTP client read the fields from it. Never re-type `policy` / `x-amz-signature`.
+
+**Direct-call exemption:** the official helper may call the fixed public presign endpoint and the allowlisted OSS host it returns. This is the ONLY permitted direct HTTP call - agents must never call billing APIs (`/v1/task/*`, `/llm/*`) outside MCP tools.
+
+## `client_sandbox_no_network` (upload POST fails with getaddrinfo ENOTFOUND / EAI_AGAIN)
+
+**What happened (real case, 2026-09-23, Codex):** `upload_generation_reference` succeeded (the policy came through the MCP channel), but the follow-up POST of the raw bytes to OSS failed with `getaddrinfo ENOTFOUND s3.ap-southeast-1.amazonaws.com`. The client sandbox (Codex default `workspace-write`) forbids ALL outbound network from shell commands - DNS included. MCP tool calls still work because the host process owns that connection.
+
+**判别 (how to confirm):** on the same machine, outside the sandbox, `dig s3.ap-southeast-1.amazonaws.com` resolves fine, while inside the sandbox even `npx install` fails with ENOTFOUND. That combination means full sandbox egress blocking - not an iCreat, OSS, or domain problem.
+
+**Fix (in this order):**
+
+1. Ask the user to approve running the upload command **outside the sandbox** when Codex prompts (works for any file size).
+2. Or guide the user to enable sandbox outbound network in `~/.codex/config.toml`:
+
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
+
+(then restart codex). This lowers sandbox isolation - mention it.
+3. Or finish the upload from a client with outbound network (e.g. WorkBuddy): upload there, get the official `https://upload.icreat.ai/...` URL, bring it back to this conversation.
+4. Or ask the user for an already public https URL of the media.
+
+**Never:** switch S3 region or CDN domain (the sandbox blocks DNS itself - domain changes cannot help), use third-party image hosts, put Base64 into `request_json`, bypass MCP with direct REST, or locally "generate a substitute" result.
+
 ## `review_required` (submit HTTP 400 or task FAILED - reference needs official review)
 
 **What happened:** per the official Seedance `need_review` contract, reference media containing a **real human face or copyrighted IP** must be submitted with `need_review: true`. The request failed because review was skipped and upstream detected reviewable content, or a created task failed after review. Two shapes:
