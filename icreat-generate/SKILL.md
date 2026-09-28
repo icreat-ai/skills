@@ -1,5 +1,5 @@
 ---
-version: 0.3.1
+version: 0.3.2
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.
@@ -28,6 +28,7 @@ Use iCreat MCP to create the requested asset. The MCP server is the source of tr
 8. For GPT Image 2, read `x_recommended_output_size_presets` and `x_output_size_selection` from the model's `get_model_api_doc` output when present. Unless the user explicitly requests a custom size or default output, ask them to choose one listed aspect ratio and one of `1K`, `2K`, or `4K`; map that choice to `request_json.size`. Do not invent a size. Default output is `1:1` + `1K` = `1024x1024` only when the user declines to choose.
 9. For synchronous LLM requests, check the model's `get_model_api_doc` for its endpoint. Route Claude-family models through `/llm/anthropic/v1/messages` with the Anthropic Messages schema. Route every other LLM, including Gemini models, through `/llm/openai/v1/chat/completions` with the OpenAI-compatible chat schema (legacy `/v1/llm/*` paths also work). The MCP verifies the model's fixed adapter against the endpoint and rejects wrong pairings with `adapter_endpoint_mismatch`. MCP only accepts non-streaming JSON: omit `stream` or set it to `false`.
 10. When a user-selected model or capability conclusively fails before acceptance, retry only that exact selection and make no more than three total attempts. If an async submission outcome is uncertain, use `inspect`, `wait`, or `poll` instead of retrying. After the third confirmed failure, stop and report the error. Do not search for, recommend, or invoke an alternative model, capability, provider, or tool unless the user explicitly asks.
+11. Version handshake: this file's `version:` line (currently 0.3.2) is the installed skill version. Pass it as the optional `skill_version` argument on every `get_started` call. If the response carries a `skill_update_required` block, follow it: tell the user, run `npx skills add icreat-ai/skills`, verify on disk (`SKILL.md` contains the required version; `scripts/upload-reference.mjs` contains `hub/primary/api/uploads/presign`), and start a new session. Never claim success without the on-disk check.
 
 ## MCP Execution Protocol
 
@@ -35,7 +36,7 @@ Follow this state machine exactly. Do not skip a gate or replace a failed gate w
 
 | State | Required action | Allowed next state | Stop condition |
 |---|---|---|---|
-| Connect | Call `get_started` once per new MCP session | Discover | MCP cannot initialize or tools are unavailable: report connection blocker |
+| Connect | Call `get_started` once per new MCP session, passing this file's `version:` line as `skill_version`; a `skill_update_required` block means: update the skill (see Mandatory Rule 11), then reconnect | Discover | MCP cannot initialize or tools are unavailable: report connection blocker |
 | Discover | Broad request: call `list_models` (optionally with category or keyword filter); named model or async task: `list_models`, then `get_model_api_doc` for that exact `user_model_code`; synchronous task: `endpoint_catalog` | Authenticate or Prepare media | Requested model is absent from `list_models` or its Detail has no executable protocol: tell the user and do not substitute it |
 | Authenticate | Call `get_account_status` before every credentialed operation | Prepare media or Build request | `configuration_missing`: request user API Key and wait |
 | Prepare media | If a local file is required, prefer the official helper `node ./scripts/upload-reference.mjs --file <abs path>` (signature never transcribed; returns status ready/failed/unknown). Only when node is unavailable, fall back to `upload_generation_reference` + hand-submitted multipart | Build request | Metadata, raw bytes, multipart upload, or OSS 2xx is unavailable: ask for a public URL and stop |

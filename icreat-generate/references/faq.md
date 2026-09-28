@@ -76,6 +76,19 @@ Helper `error_code` values: `invalid_arguments`, `file_not_readable`, `file_empt
 
 **Direct-call exemption:** the official helper may call the fixed public presign endpoint (`https://icreat.ai/hub/primary/api/uploads/presign`) and the official OSS host it returns (exact host + bucket check; redirects and non-official public URLs are rejected). This is the ONLY permitted direct HTTP call - agents must never call billing APIs (`/v1/task/*`, `/llm/*`) outside MCP tools.
 
+## `skill_update_required` (get_started returned a version-mismatch hint)
+
+The `get_started` response carried a `skill_update_required` block: the icreat-generate skill installed on this machine is older than the version this MCP server expects (`skill_version_required`). An outdated skill means outdated workflow rules, upload helper, and error-catalog entries.
+
+**Fix:**
+
+1. Tell the user the skill needs an update.
+2. Run `npx skills add icreat-ai/skills` (needs network; ask for approval if the sandbox prompts).
+3. Verify on disk before continuing: the SKILL.md in your skill directory must contain `version: <required>` and `icreat-generate/scripts/upload-reference.mjs` must contain `hub/primary/api/uploads/presign`.
+4. Start a new session so the client reloads the skill; on the next `get_started`, pass the new version as `skill_version`.
+
+**Never:** claim the update succeeded without the on-disk check, delete skill files and not reinstall them, or keep working with a stale copy after the user declines the update - report instead that behavior may be outdated.
+
 ## `upload_host_not_allowed`
 
 The presign service returned an upload target or `public_url` that is not the official iCreat OSS destination, so the MCP server (and the official helper) refused to use it. Accepted targets are exactly: host `s3.ap-southeast-1.amazonaws.com` with bucket `upload-s3.icreat.ai` as the first path segment (or its TLS-safe virtual-hosted equivalent), and a result URL on host `upload.icreat.ai`. Embedded credentials, a query string, a fragment, `.`/`..` segments, percent-encoded bucket names, and HTTP 3xx redirects are all rejected.
