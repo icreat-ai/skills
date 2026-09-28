@@ -1,5 +1,5 @@
 ---
-version: 0.3.2
+version: 0.3.3
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.
@@ -28,7 +28,7 @@ Use iCreat MCP to create the requested asset. The MCP server is the source of tr
 8. For GPT Image 2, read `x_recommended_output_size_presets` and `x_output_size_selection` from the model's `get_model_api_doc` output when present. Unless the user explicitly requests a custom size or default output, ask them to choose one listed aspect ratio and one of `1K`, `2K`, or `4K`; map that choice to `request_json.size`. Do not invent a size. Default output is `1:1` + `1K` = `1024x1024` only when the user declines to choose.
 9. For synchronous LLM requests, check the model's `get_model_api_doc` for its endpoint. Route Claude-family models through `/llm/anthropic/v1/messages` with the Anthropic Messages schema. Route every other LLM, including Gemini models, through `/llm/openai/v1/chat/completions` with the OpenAI-compatible chat schema (legacy `/v1/llm/*` paths also work). The MCP verifies the model's fixed adapter against the endpoint and rejects wrong pairings with `adapter_endpoint_mismatch`. MCP only accepts non-streaming JSON: omit `stream` or set it to `false`.
 10. When a user-selected model or capability conclusively fails before acceptance, retry only that exact selection and make no more than three total attempts. If an async submission outcome is uncertain, use `inspect`, `wait`, or `poll` instead of retrying. After the third confirmed failure, stop and report the error. Do not search for, recommend, or invoke an alternative model, capability, provider, or tool unless the user explicitly asks.
-11. Version handshake: this file's `version:` line (currently 0.3.2) is the installed skill version. Pass it as the optional `skill_version` argument on every `get_started` call. If the response carries a `skill_update_required` block, follow it: tell the user, run `npx skills add icreat-ai/skills`, verify on disk (`SKILL.md` contains the required version; `scripts/upload-reference.mjs` contains `hub/primary/api/uploads/presign`), and start a new session. Never claim success without the on-disk check.
+11. Version handshake: this file's `version:` frontmatter line is the installed skill version. Pass it as the optional `skill_version` argument on every `get_started` call. If the response carries a `skill_update_required` block, follow it: tell the user, run `npx skills add icreat-ai/skills`, verify on disk (`SKILL.md` contains the required version; `scripts/upload-reference.mjs` contains `hub/primary/api/uploads/presign`), and start a new session. Never claim success without the on-disk check.
 
 ## MCP Execution Protocol
 
