@@ -70,11 +70,43 @@ It fetches its own policy, submits every field programmatically, verifies HTTP 2
 
 `file_sha256` in the output is a **local digest only** - it does not prove remote object integrity (no remote verification is performed).
 
-Helper `error_code` values: `invalid_arguments`, `file_not_readable`, `file_empty`, `file_too_large`, `unsupported_extension`, `content_type_mismatch` (extension does not match magic bytes - convert the file, do not force the extension), `presign_network_error`, `presign_timeout`, `upload_network_unreachable`, `upload_tls_error`, `upload_host_not_allowed`, `policy_expired` (helper re-signs up to 2 times automatically), `signature_mismatch`, `upload_forbidden`.
+Helper `error_code` values: `invalid_arguments`, `file_not_readable`, `file_empty`, `file_too_large`, `unsupported_extension`, `content_type_mismatch` (extension does not match magic bytes - convert the file, do not force the extension), `presign_network_error`, `presign_timeout`, `presign_http_<status>` (presign returned a non-2xx status, including a refused redirect), `presign_invalid_json` / `presign_incomplete` (presign response was not JSON or lacked `url`/`fields`/`public_url`), `upload_network_unreachable`, `upload_tls_error`, `upload_host_not_allowed` (presign returned a non-official upload target or public URL), `upload_redirect_not_allowed` (the upload endpoint tried to redirect; never follow it), `policy_expired` (helper re-signs up to 2 times automatically), `signature_mismatch`, `upload_forbidden`, `helper_crashed` (unexpected helper fault - report it with the message, do not retry blindly).
 
 **Fallback path (only when node is unavailable):** hand-submit the policy, but write the returned JSON to a file and let your HTTP client read the fields from it. Never re-type `policy` / `x-amz-signature`.
 
-**Direct-call exemption:** the official helper may call the fixed public presign endpoint and the allowlisted OSS host it returns. This is the ONLY permitted direct HTTP call - agents must never call billing APIs (`/v1/task/*`, `/llm/*`) outside MCP tools.
+**Direct-call exemption:** the official helper may call the fixed public presign endpoint (`https://icreat.ai/hub/primary/api/uploads/presign`) and the official OSS host it returns (exact host + bucket check; redirects and non-official public URLs are rejected). This is the ONLY permitted direct HTTP call - agents must never call billing APIs (`/v1/task/*`, `/llm/*`) outside MCP tools.
+
+## `upload_host_not_allowed`
+
+The presign service returned an upload target or `public_url` that is not the official iCreat OSS destination, so the MCP server (and the official helper) refused to use it. Accepted targets are exactly: host `s3.ap-southeast-1.amazonaws.com` with bucket `upload-s3.icreat.ai` as the first path segment (or its TLS-safe virtual-hosted equivalent), and a result URL on host `upload.icreat.ai`. Embedded credentials, a query string, a fragment, `.`/`..` segments, percent-encoded bucket names, and HTTP 3xx redirects are all rejected.
+
+**Fix:** do NOT upload the file anywhere and do NOT retry with a different host, region, or bucket — a mismatch here means the policy itself is untrustworthy. Report the exact message to the user and ask them to retry later or supply an already public https URL.
+
+**Never:** "fix" this by editing the returned `upload_url`, switching S3 region or CDN domain, following a redirect manually, or falling back to a third-party image host.
+
+## `upload_result_unknown` (the official helper reports `"status":"unknown"`)
+
+The upload outcome is undetermined (timeout or no response), so the object may or may not exist on OSS. A local `file_sha256` does not prove the remote object landed.
+
+**Fix:** do NOT start generation with that `url` and do NOT blindly re-upload. Ask the user to retry the helper once. If it reports `unknown` again, ask them to verify the media in the iCreat console or provide an already public https URL.
+
+**Never:** treat `unknown` as `ready`, fabricate or guess the final URL, or loop re-uploads (each attempt can leave another orphaned object).
+
+## `upload_policy_expired` (the official helper reports `policy_expired`)
+
+The OSS policy expired before the bytes arrived. Policies are short-lived by design.
+
+**Fix:** request a fresh policy from `upload_generation_reference` and upload immediately (at most 2 re-signs; the official helper does this automatically). Do not insert other slow steps between signing and uploading.
+
+**Never:** reuse an expired policy, or keep re-signing in a loop beyond 2 attempts - if it still expires, report the failure instead.
+
+## `upload_signature_mismatch` (the official helper reports `signature_mismatch`)
+
+OSS reported `SignatureDoesNotMatch`. The usual cause is a model re-typing the high-entropy `policy` (~500 chars) or `x-amz-signature` (64 chars); a real 2026-09-23 case flipped two characters.
+
+**Fix:** use the official helper (`scripts/upload-reference.mjs`) so signature fields are passed programmatically and never re-typed. If the helper itself produced this error, stop and report it - that indicates a presign service or clock-skew problem, not agent transcription.
+
+**Never:** hand-retype signature fields, or edit any returned `form_fields` value.
 
 ## `client_sandbox_no_network` (upload POST fails with getaddrinfo ENOTFOUND / EAI_AGAIN)
 
@@ -98,7 +130,7 @@ network_access = true
 
 **Never:** switch S3 region or CDN domain (the sandbox blocks DNS itself - domain changes cannot help), use third-party image hosts, put Base64 into `request_json`, bypass MCP with direct REST, or locally "generate a substitute" result.
 
-## `review_required` (submit HTTP 400 or task FAILED - reference needs official review)
+## `review_required` (submit HTTP 400 or task FAILED — reference needs official review)
 
 **What happened:** per the official Seedance `need_review` contract, reference media containing a **real human face or copyrighted IP** must be submitted with `need_review: true`. The request failed because review was skipped and upstream detected reviewable content, or a created task failed after review. Two shapes:
 
@@ -127,7 +159,7 @@ network_access = true
 1. Do NOT add fake `Chrome` User-Agents, `sec-ch-ua`, or `Referer` headers.
 2. Do NOT bypass MCP and call the website API from your own HTTP client — that is exactly what triggered 1010 for a Python client in the real case.
 3. Retry once after a short wait.
-4. If it persists, report the exact error and the official User-Agent `icreat-mcp/<version>` to the service owner; the gateway must allow `icreat-mcp/*` on `/hub/third/api/nexus/model-display/list`, `/hub/third/api/nexus/model-display/detail`, and `/api/uploads/presign`.
+4. If it persists, report the exact error and the official User-Agent `icreat-mcp/<version>` to the service owner; the gateway must allow `icreat-mcp/*` on `/hub/third/api/nexus/model-display/list`, `/hub/third/api/nexus/model-display/detail`, and `/hub/primary/api/uploads/presign`.
 
 ## `size_bytes_not_number`
 
@@ -167,6 +199,22 @@ The official website model directory is temporarily unreachable. Retry the same 
 
 No API Key is available. Ask the user for their key from `https://icreat.ai/hub/keys`, then call `configure_api_key` (single-user trusted client) or pass `api_key` explicitly on each credentialed call. Never invent a key.
 
+## `wait_timeout` (`"status":"timeout"`, `"final":false`, `"retryable":true`)
+
+**This is not a failure and not an upstream outage.** On HTTP transport a single `wait` is capped at 50 seconds so the call always returns before gateway idle timeouts (nginx 60s, Cloudflare ~100s) can cut it mid-poll. When the cap is reached and the task has not yet reached a terminal state, you get:
+
+```json
+{"ok":false,"status":"timeout","final":false,"retryable":true,
+ "data":{"status":"SUBMITTED"},
+ "error":{"code":"wait_timeout","message":"wait timed out before task reached a terminal state"}}
+```
+
+`http_status: 200` with `data.status` of `SUBMITTED` or `IN_PROGRESS` means the upstream accepted the task and it is still queued or rendering. Video generation routinely takes minutes, so the first several `wait` calls ending in `wait_timeout` is the expected path.
+
+**Fix:** call `wait` again with the **same** `task_id` or `logical_job_id`. Each call polls once more. Keep going until `SUCCEEDED` or a terminal failure. The MCP layer returns `isError=true` on this envelope for protocol reasons, and it also appends a `{"terminal":false,...}` hint — read that hint, not just the error flag.
+
+**Never:** resubmit the generation because `wait` timed out (the task is still running and was NOT billed again), raise `timeout` above 60s on HTTP transport, or treat `wait_timeout` as `FAILED`.
+
 ## models list returns `"status":"stale"` (`stale_cache`)
 
 The remote `/v1/models` request failed and a cache older than 5 minutes was returned for diagnostics (`ok:false`, non-zero exit). Treat the list as outdated: retry, or use MCP `list_models` (official website directory) instead of CLI `models list`.
@@ -175,7 +223,7 @@ The remote `/v1/models` request failed and a cache older than 5 minutes was retu
 
 ## The bypass trap (read this before "working around" anything)
 
-Two real sessions ended with the agent holding a working API Key and "helpfully" calling `https://100aidesign.com/api/uploads/presign` or `https://api.icreat.ai/v1/task/submit/...` directly. The task succeeded, but:
+Two real sessions ended with the agent holding a working API Key and "helpfully" calling the presign endpoint (`https://icreat.ai/hub/primary/api/uploads/presign`) or `https://api.icreat.ai/v1/task/submit/...` directly. The task succeeded, but:
 
 - the submit bypassed `logical_job_id` duplicate protection;
 - no local job state existed, so `poll`/`wait`/`inspect` could not recover the task;

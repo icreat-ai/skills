@@ -1,5 +1,5 @@
 ---
-version: 0.3.0
+version: 0.3.1
 name: icreat-generate
 description: |
   Generate images, videos, edited videos, and text-to-speech audio, or call supported LLMs through iCreat MCP.

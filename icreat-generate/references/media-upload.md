@@ -16,7 +16,7 @@ The helper fetches its own policy, submits every signature field programmaticall
 - `failed` - act on `error_code`; never fabricate a URL
 - `unknown` - outcome undetermined; do NOT generate and do NOT re-upload blindly
 
-`file_sha256` is a local digest only; it does not prove remote object integrity. The helper is the only component allowed to call the fixed public presign endpoint and the allowlisted OSS host directly.
+`file_sha256` is a local digest only; it does not prove remote object integrity. The helper is the only component allowed to call the fixed public presign endpoint (`https://icreat.ai/hub/primary/api/uploads/presign`) directly. It uploads only to the official OSS target (host `s3.ap-southeast-1.amazonaws.com` with bucket `upload-s3.icreat.ai` as the first path segment, or its TLS-safe virtual-hosted equivalent) and accepts a result `url` only on the official host `upload.icreat.ai`. Any other target, embedded credentials, query/fragment, or an HTTP 3xx redirect aborts the upload; agents must never call billing APIs (`/v1/task/*`, `/llm/*`) outside MCP tools.
 
 ## Fallback Procedure (only when node is unavailable)
 

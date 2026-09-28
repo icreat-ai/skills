@@ -16,21 +16,29 @@
  *              generation and do NOT blindly re-upload.
  *
  * Scope note: this helper is the only component allowed to call the fixed public
- * presign endpoint directly, plus the OSS host that endpoint returns (checked
- * against an allowlist). Agents must never call billing APIs (/v1/task/*,
- * /llm/*) directly - those always go through MCP tools.
+ * presign endpoint directly, plus the official OSS host that endpoint returns
+ * (checked against the exact official host + bucket). Agents must never call
+ * billing APIs (/v1/task/*, /llm/*) directly - those always go through MCP tools.
  */
 
 import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { basename, extname } from 'node:path'
 
-const PRESIGN_URL = process.env.ICREAT_PRESIGN_URL || 'https://100aidesign.com/api/uploads/presign'
+const PRESIGN_URL = process.env.ICREAT_PRESIGN_URL || 'https://icreat.ai/hub/primary/api/uploads/presign'
 const USER_AGENT = 'icreat-upload-helper/1.0 (+https://icreat.ai)'
 const PRESIGN_TIMEOUT_MS = 30_000
 const UPLOAD_TIMEOUT_MS = 300_000
 const MAX_POLICY_RETRIES = 2 // only for confirmed policy expiry
 const MAX_SIZE_BYTES = 65 * 1024 * 1024
+
+// The only OSS target this helper may upload to. The presign service returns a
+// virtual-hosted URL for this dotted bucket; the path-style form below is the
+// TLS-safe equivalent (same signature). Everything else is rejected.
+const OFFICIAL_BUCKET = 'upload-s3.icreat.ai'
+const OFFICIAL_S3_HOST = 's3.ap-southeast-1.amazonaws.com'
+const OFFICIAL_VIRTUAL_HOST = `${OFFICIAL_BUCKET}.s3.ap-southeast-1.amazonaws.com`
+const OFFICIAL_PUBLIC_HOST = 'upload.icreat.ai'
 
 // Extension allowlist. The presign backend does not restrict extensions, and S3
 // does not inspect magic bytes, so this helper is the only gate.
@@ -44,13 +52,6 @@ const ALLOWED = new Map([
   ['mp3', { mime: 'audio/mpeg', magic: [[0x49, 0x44, 0x33], [0xff, 0xfb], [0xff, 0xf3], [0xff, 0xf2]] }],
   ['wav', { mime: 'audio/wav', magic: [[0x52, 0x49, 0x46, 0x46]] }],
 ])
-
-// OSS hosts this helper may POST bytes to (suffix match on hostname).
-const ALLOWED_UPLOAD_HOST_SUFFIXES = [
-  '.amazonaws.com',
-  '.icreat.ai',
-  'icreat.ai',
-]
 
 function out(payload) {
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`)
@@ -111,18 +112,49 @@ function matchesMagic(buffer, spec, ext) {
   return spec.magic.some((sig) => sig.every((byte, index) => buffer[index] === byte))
 }
 
-function hostAllowed(urlString) {
-  let host
+/**
+ * Classifies an upload URL against the exact official OSS target.
+ * Returns 'path' (official regional host + official bucket as first path
+ * segment), 'virtual' (official virtual-hosted form; TLS-invalid for the
+ * dotted bucket, kept only as a conversion source), or null (rejected).
+ */
+function classifyUploadTarget(urlString) {
+  let parsed
   try {
-    const parsed = new URL(urlString)
-    if (parsed.protocol !== 'https:') return false
-    host = parsed.hostname.toLowerCase()
+    parsed = new URL(urlString)
+  } catch {
+    return null
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) return null
+  const host = parsed.hostname.toLowerCase()
+  if (host === OFFICIAL_S3_HOST) {
+    const segments = parsed.pathname.split('/').filter(Boolean)
+    return segments[0] === OFFICIAL_BUCKET && !hasUnsafePathSegment(segments) ? 'path' : null
+  }
+  if (host === OFFICIAL_VIRTUAL_HOST && !hasUnsafePathSegment(parsed.pathname.split('/').filter(Boolean))) return 'virtual'
+  return null
+}
+
+function hasUnsafePathSegment(segments) {
+  return segments.some((segment) => segment === '.' || segment === '..' || /[%\\]/.test(segment))
+}
+
+function isOfficialPublicURL(urlString) {
+  let parsed
+  try {
+    parsed = new URL(urlString)
   } catch {
     return false
   }
-  return ALLOWED_UPLOAD_HOST_SUFFIXES.some((suffix) =>
-    suffix.startsWith('.') ? host.endsWith(suffix) : host === suffix,
-  )
+  const segments = parsed.pathname.split('/').filter(Boolean)
+  return parsed.protocol === 'https:' &&
+    !parsed.username &&
+    !parsed.password &&
+    !parsed.search &&
+    !parsed.hash &&
+    parsed.hostname.toLowerCase() === OFFICIAL_PUBLIC_HOST &&
+    segments.length > 0 &&
+    !hasUnsafePathSegment(segments)
 }
 
 async function requestPolicy(ext, mime, sizeBytes) {
@@ -138,6 +170,7 @@ async function requestPolicy(ext, mime, sizeBytes) {
       },
       body: JSON.stringify({ file_extension: ext, content_type: mime, size_bytes: sizeBytes }),
       signal: controller.signal,
+      redirect: 'manual',
     })
     const text = await res.text()
     if (!res.ok) {
@@ -150,8 +183,11 @@ async function requestPolicy(ext, mime, sizeBytes) {
       return { error: 'presign_invalid_json', message: `presign response is not JSON: ${text.slice(0, 200)}` }
     }
     const policy = body?.result
-    if (!policy?.url || !policy?.fields) {
-      return { error: 'presign_incomplete', message: `presign response missing url/fields: ${text.slice(0, 200)}` }
+    if (!policy?.url || !policy?.fields || !policy?.public_url) {
+      return { error: 'presign_incomplete', message: `presign response missing url/fields/public_url: ${text.slice(0, 200)}` }
+    }
+    if (!isOfficialPublicURL(policy.public_url)) {
+      return { error: 'upload_host_not_allowed', message: `presign returned a non-official public URL: ${policy.public_url}` }
     }
     return { policy }
   } catch (err) {
@@ -192,11 +228,14 @@ function classifyUploadFailure(status, bodyText) {
  * Verified 2026-09-24: virtual-hosted => TLS error, path-style => HTTP 204.
  */
 function pathStyleCandidate(uploadURL) {
-  const match = /^https:\/\/(?<bucket>.+)\.s3\.(?<region>[a-z0-9-]+)\.amazonaws\.com\/?$/.exec(uploadURL)
-  if (!match?.groups) return null
-  const { bucket, region } = match.groups
-  if (!bucket.includes('.')) return null // single-label bucket: cert already matches
-  return `https://s3.${region}.amazonaws.com/${bucket}`
+  let parsed
+  try {
+    parsed = new URL(uploadURL)
+  } catch {
+    return null
+  }
+  if (parsed.hostname.toLowerCase() !== OFFICIAL_VIRTUAL_HOST) return null
+  return `https://${OFFICIAL_S3_HOST}/${OFFICIAL_BUCKET}`
 }
 
 function buildForm(policy, fileBuffer, filename, mime) {
@@ -217,7 +256,11 @@ async function postForm(targetURL, policy, fileBuffer, filename, mime) {
       body: buildForm(policy, fileBuffer, filename, mime),
       headers: { 'user-agent': USER_AGENT },
       signal: controller.signal,
+      redirect: 'manual',
     })
+    if (res.status >= 300 && res.status < 400) {
+      return { fatal: { code: 'upload_redirect_not_allowed', message: `OSS upload must not redirect: HTTP ${res.status}` } }
+    }
     const bodyText = await res.text().catch(() => '')
     return { httpStatus: res.status, ok: res.status >= 200 && res.status < 300, bodyText }
   } catch (err) {
@@ -242,13 +285,14 @@ async function postForm(targetURL, policy, fileBuffer, filename, mime) {
 }
 
 async function uploadOnce(policy, fileBuffer, filename, mime) {
-  if (!hostAllowed(policy.url)) {
-    return { fatal: { code: 'upload_host_not_allowed', message: `presign returned a non-allowlisted upload host: ${policy.url}` } }
+  const kind = classifyUploadTarget(policy.url)
+  if (!kind) {
+    return { fatal: { code: 'upload_host_not_allowed', message: `presign returned a non-official upload target: ${policy.url}` } }
   }
 
   const candidates = [policy.url]
   const pathStyle = pathStyleCandidate(policy.url)
-  if (pathStyle && hostAllowed(pathStyle)) candidates.push(pathStyle)
+  if (pathStyle && classifyUploadTarget(pathStyle)) candidates.push(pathStyle)
 
   let lastTransportError = null
   for (const target of candidates) {
